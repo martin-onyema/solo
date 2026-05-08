@@ -1,0 +1,107 @@
+// ============================================================================
+// Prisma Schema — Supabase PostgreSQL + Auth.js (NextAuth) with PrismaAdapter
+// In Prisma 7.x, connection URLs are configured in prisma.config.ts, NOT here.
+// The schema only defines the provider name.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// Auth.js (NextAuth) Required Models — DO NOT RENAME these fields
+// PrismaAdapter expects this exact structure
+// ============================================================================
+
+model User {
+  id             String    @id @default(cuid())
+  name           String?
+  email          String?   @unique
+  emailVerified  DateTime?
+  image          String?
+  username       String?   @unique               // For Credentials provider login
+  passwordHash   String?                         // For Credentials provider
+  role           String    @default("user")      // "admin" | "user"
+  accounts       Account[]
+  sessions       Session[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?  @db.Text
+  access_token      String?  @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.Text
+  session_state     String?  @db.Text
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================================
+// Application Models
+// ============================================================================
+
+model Property {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  description String
+  price       Int
+  location    String
+  city        String
+  type        String   // Residential, Commercial, Land
+  tag         String   // Featured, New, Hot, Premium, Luxury, Investment
+  beds        Int      @default(0)
+  baths       Int      @default(0)
+  size        String   @default("")
+  image       String
+  images      String   @default("[]") // JSON array of image paths
+  features    String   @default("[]") // JSON array of feature strings
+  featured    Boolean  @default(false)
+  status      String   @default("available") // available, sold, pending
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  inquiries   Inquiry[]
+}
+
+model Inquiry {
+  id         String    @id @default(cuid())
+  name       String
+  email      String
+  phone      String    @default("")
+  message    String
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  read       Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
