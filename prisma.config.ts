@@ -19,8 +19,9 @@ import { defineConfig } from "prisma/config";
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
-    path: "prisma/migrations",
-  },
+  path: "prisma/migrations",
+  seed: "npx tsx prisma/seed.ts",  // ← add this line
+},
   datasource: {
     // This URL is used by Prisma CLI commands (db push, migrate, etc.)
     // For Supabase, use the DIRECT connection (port 5432) for CLI commands
