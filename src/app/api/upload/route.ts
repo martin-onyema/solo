@@ -1,6 +1,7 @@
-// src/app/api/upload/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { put } from "@vercel/blob";        // ← static, top-level
+import { writeFile, mkdir } from "fs/promises";  // ← static, top-level
 import path from "path";
 
 export async function POST(request: NextRequest) {
@@ -24,15 +25,13 @@ export async function POST(request: NextRequest) {
     const ext = path.extname(file.name) || ".jpg";
     const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`;
 
-    // Vercel Blob — used when BLOB_READ_WRITE_TOKEN is set (production)
+    // Vercel Blob (production) — set BLOB_READ_WRITE_TOKEN in Vercel → Storage → Blob
     if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const { put } = await import("@vercel/blob");
       const blob = await put(`uploads/${uniqueName}`, file, { access: "public" });
       return NextResponse.json({ url: blob.url, success: true });
     }
 
     // Local filesystem fallback (development only)
-    const { writeFile, mkdir } = await import("fs/promises");
     const uploadDir = path.join(process.cwd(), "public", "images", "uploads");
     await mkdir(uploadDir, { recursive: true });
     const buffer = Buffer.from(await file.arrayBuffer());
