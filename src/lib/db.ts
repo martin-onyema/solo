@@ -1,14 +1,4 @@
-// ============================================================================
-// Prisma Client Singleton — Prisma 7.x with PostgreSQL Driver Adapter
-//
-// In Prisma 7, the "client" engine is the default (WASM-based, no binary).
-// It requires a Driver Adapter to connect to the database.
-// We use @prisma/adapter-pg with the 'pg' driver for Supabase PostgreSQL.
-//
-// Connection flow:
-//   .env → DATABASE_URL (pooled, port 6543) → pg.Pool → PrismaAdapter → PrismaClient
-// ============================================================================
-
+// src/lib/db.ts
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
@@ -18,28 +8,26 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient(): PrismaClient {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
+  const rawUrl = process.env.DATABASE_URL;
+  if (!rawUrl) {
     throw new Error(
       "DATABASE_URL environment variable is not set. " +
-      "Please add it to your .env file. " +
-      "For Supabase: postgresql://postgres.[ref]:[pw]@aws-0-[region].pooler.supabase.com:6543/postgres"
+      "Add it to your .env file (dev) or Vercel environment variables (prod)."
     );
   }
 
-  // Create a PostgreSQL connection pool
-  const pool = new pg.Pool({ connectionString });
+  // Strip ?pgbouncer=true — not understood by pg.Pool and causes table
+  // visibility issues with PgBouncer in transaction mode (port 6543).
+  const connectionString = rawUrl
+    .replace(/([?&])pgbouncer=true(&|$)/gi, "$1")
+    .replace(/[?&]$/, "");
 
-  // Create the Prisma PG adapter
+  const pool = new pg.Pool({ connectionString });
   const adapter = new PrismaPg(pool);
 
-  // Create PrismaClient with the adapter
   return new PrismaClient({
     adapter,
-    log:
-      process.env.NODE_ENV === "development"
-        ? ["query", "error", "warn"]
-        : ["error"],
+    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
   });
 }
 
@@ -47,11 +35,5 @@ export const db = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = db;
-}
-
-// Graceful shutdown
-if (process.env.NODE_ENV !== "production") {
-  process.on("beforeExit", async () => {
-    await db.$disconnect();
-  });
+  process.on("beforeExit", async () => { await db.$disconnect(); });
 }
