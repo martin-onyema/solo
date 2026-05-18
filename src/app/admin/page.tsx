@@ -427,33 +427,48 @@ export default function AdminDashboard() {
 
   // CRUD
   const handleSave = async () => {
-  if (!form.image.trim()) {
-    alert("Please add a main image — paste an image URL in the field below the upload box.");
-    return;
-  }
-  if (!form.title.trim()) {
-    alert("Please enter a property title.");
-    return;
-  }
+    if (!form.title.trim()) {
+      alert("Please enter a property title.");
+      return;
+    }
+    if (!form.image.trim()) {
+      alert("Please add a main image — paste an image URL in the field below the upload box.");
+      return;
+    }
 
-  const payload = {
-    ...form,
-    slug: generateSlug(form.title),
-    price: Number(form.price),
-    beds: Number(form.beds),
-    baths: Number(form.baths),
-  };
+    const payload = {
+      ...form,
+      slug: generateSlug(form.title),
+      price: Number(form.price),
+      beds: Number(form.beds),
+      baths: Number(form.baths),
+    };
 
-  try {
-    const res = await fetch(
-      editingId ? `/api/properties/${editingId}` : "/api/properties",
-      {
-        method: editingId ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+    try {
+      const res = await fetch(
+        editingId ? `/api/properties/${editingId}` : "/api/properties",
+        {
+          method: editingId ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || `Failed to save property (status ${res.status}). Check that all required fields are filled.`);
+        return;
       }
-    );
 
+      setShowForm(false);
+      setEditingId(null);
+      setForm(emptyForm);
+      loadAll();
+    } catch (e) {
+      console.error(e);
+      alert("Network error — could not save the property. Please check your connection and try again.");
+    }
+  };
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       alert(data.error || `Failed to save property (status ${res.status}). Check that all required fields are filled.`);
