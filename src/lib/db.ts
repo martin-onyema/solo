@@ -1,4 +1,3 @@
-// src/lib/db.ts
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
@@ -16,8 +15,8 @@ function createPrismaClient(): PrismaClient {
     );
   }
 
-  // Strip ?pgbouncer=true — not understood by pg.Pool and causes table
-  // visibility issues with PgBouncer in transaction mode (port 6543).
+  // Strip ?pgbouncer=true — not needed by pg.Pool and causes
+  // PgBouncer transaction-mode to hide tables (same bug as the seed failure).
   const connectionString = rawUrl
     .replace(/([?&])pgbouncer=true(&|$)/gi, "$1")
     .replace(/[?&]$/, "");
