@@ -110,7 +110,7 @@ const emptyForm = {
   beds: 0,
   baths: 0,
   size: "",
-  image: "/images/property-1.png",
+  image: "",
   images: [] as string[],
   features: [] as string[],
   featured: false,
@@ -426,49 +426,59 @@ export default function AdminDashboard() {
   }, [isAuthenticated]);
 
   // CRUD
-  const handleSave = async () => {
-    if (!form.title.trim()) {
-      alert("Please enter a property title.");
-      return;
-    }
-    if (!form.image.trim()) {
-      alert("Please add a main image — paste an image URL in the field below the upload box.");
-      return;
-    }
+const handleSave = async () => {
+  if (!form.title.trim()) {
+    alert("Please enter a property title.");
+    return;
+  }
 
-    const payload = {
-      ...form,
-      slug: generateSlug(form.title),
-      price: Number(form.price),
-      beds: Number(form.beds),
-      baths: Number(form.baths),
-    };
+  if (!form.image.trim()) {
+    alert("Please add a main image URL.");
+    return;
+  }
 
-    try {
-      const res = await fetch(
-        editingId ? `/api/properties/${editingId}` : "/api/properties",
-        {
-          method: editingId ? "PUT" : "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        alert(data.error || `Failed to save property (status ${res.status}). Check that all required fields are filled.`);
-        return;
-      }
-
-      setShowForm(false);
-      setEditingId(null);
-      setForm(emptyForm);
-      loadAll();
-    } catch (e) {
-      console.error(e);
-      alert("Network error — could not save the property. Please check your connection and try again.");
-    }
+  const payload = {
+    ...form,
+    slug: generateSlug(form.title),
+    price: Number(form.price),
+    beds: Number(form.beds),
+    baths: Number(form.baths),
+    images: JSON.stringify(form.images || []),
+    features: JSON.stringify(form.features || []),
   };
+
+  try {
+    const res = await fetch(
+      editingId ? `/api/properties/${editingId}` : "/api/properties",
+      {
+        method: editingId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || `Failed to save property (status ${res.status}).`);
+      return;
+    }
+
+    alert(
+      editingId
+        ? "Property updated successfully."
+        : "Property created successfully."
+    );
+
+    setShowForm(false);
+    setEditingId(null);
+    setForm(emptyForm);
+
+    await loadAll();
+  } catch (e) {
+    console.error(e);
+    alert("Network error — could not save the property.");
+  }
+};
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       alert(data.error || `Failed to save property (status ${res.status}). Check that all required fields are filled.`);
