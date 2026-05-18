@@ -427,36 +427,48 @@ export default function AdminDashboard() {
 
   // CRUD
   const handleSave = async () => {
-    const payload = {
-      ...form,
-      slug: generateSlug(form.title),
-      price: Number(form.price),
-      beds: Number(form.beds),
-      baths: Number(form.baths),
-    };
+  if (!form.image.trim()) {
+    alert("Please add a main image — paste an image URL in the field below the upload box.");
+    return;
+  }
+  if (!form.title.trim()) {
+    alert("Please enter a property title.");
+    return;
+  }
 
-    try {
-      if (editingId) {
-        await fetch(`/api/properties/${editingId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      } else {
-        await fetch("/api/properties", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      }
-      setShowForm(false);
-      setEditingId(null);
-      setForm(emptyForm);
-      loadAll();
-    } catch (e) {
-      console.error(e);
-    }
+  const payload = {
+    ...form,
+    slug: generateSlug(form.title),
+    price: Number(form.price),
+    beds: Number(form.beds),
+    baths: Number(form.baths),
   };
+
+  try {
+    const res = await fetch(
+      editingId ? `/api/properties/${editingId}` : "/api/properties",
+      {
+        method: editingId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || `Failed to save property (status ${res.status}). Check that all required fields are filled.`);
+      return;
+    }
+
+    setShowForm(false);
+    setEditingId(null);
+    setForm(emptyForm);
+    loadAll();
+  } catch (e) {
+    console.error(e);
+    alert("Network error — could not save the property. Please check your connection and try again.");
+  }
+};
 
   const handleEdit = (p: Property) => {
     setEditingId(p.id);
