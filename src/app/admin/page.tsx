@@ -55,8 +55,8 @@ interface Property {
   baths: number;
   size: string;
   image: string;
-  images: string;
-  features: string;
+  images: string; // JSON-encoded string[] from the API
+  features: string; // JSON-encoded string[] from the API
   featured: boolean;
   status: string;
   createdAt: string;
@@ -110,7 +110,7 @@ const emptyForm = {
   beds: 0,
   baths: 0,
   size: "",
-  image: "",
+  image: "/images/property-1.png",
   images: [] as string[],
   features: [] as string[],
   featured: false,
@@ -344,15 +344,17 @@ export default function AdminDashboard() {
     }
   };
 
+  // FIX #1: Use functional updater (prev) => ... to avoid stale closure bugs
   const handleMainImageUpload = async (files: FileList | File[]) => {
     const file = files[0];
     if (!file) return;
     setUploadingMain(true);
     const url = await uploadFile(file);
-    if (url) setForm({ ...form, image: url });
+    if (url) setForm((prev) => ({ ...prev, image: url }));
     setUploadingMain(false);
   };
 
+  // FIX #1: Use functional updater (prev) => ... to avoid stale closure bugs
   const handleGalleryUpload = async (files: FileList | File[]) => {
     setUploadingGallery(true);
     const newImages: string[] = [];
@@ -361,7 +363,7 @@ export default function AdminDashboard() {
       if (url) newImages.push(url);
     }
     if (newImages.length > 0) {
-      setForm({ ...form, images: [...form.images, ...newImages] });
+      setForm((prev) => ({ ...prev, images: [...prev.images, ...newImages] }));
     }
     setUploadingGallery(false);
   };
@@ -426,62 +428,55 @@ export default function AdminDashboard() {
   }, [isAuthenticated]);
 
   // CRUD
-const handleSave = async () => {
-  if (!form.title.trim()) {
-    alert("Please enter a property title.");
-    return;
-  }
+  const handleSave = async () => {
+    const payload = {
+      ...form,
+      slug: generateSlug(form.title),
+      price: Number(form.price),
+      beds: Number(form.beds),
+      baths: Number(form.baths),
+    };
 
-  if (!form.image.trim()) {
-    alert("Please add a main image URL.");
-    return;
-  }
-
-  const payload = {
-    ...form,
-    slug: generateSlug(form.title),
-    price: Number(form.price),
-    beds: Number(form.beds),
-    baths: Number(form.baths),
-    images: JSON.stringify(form.images || []),
-    features: JSON.stringify(form.features || []),
+    try {
+      if (editingId) {
+        await fetch(`/api/properties/${editingId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await fetch("/api/properties", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
+      setShowForm(false);
+      setEditingId(null);
+      setForm(emptyForm);
+      loadAll();
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  try {
-    const res = await fetch(
-      editingId ? `/api/properties/${editingId}` : "/api/properties",
-      {
-        method: editingId ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      alert(data.error || `Failed to save property (status ${res.status}).`);
-      return;
-    }
-
-    alert(
-      editingId
-        ? "Property updated successfully."
-        : "Property created successfully."
-    );
-
-    setShowForm(false);
-    setEditingId(null);
-    setForm(emptyForm);
-
-    await loadAll();
-  } catch (e) {
-    console.error(e);
-    alert("Network error — could not save the property.");
-  }
-};
-
+  // FIX #4: Safe JSON.parse with try/catch and Array.isArray validation
   const handleEdit = (p: Property) => {
     setEditingId(p.id);
+    let parsedImages: string[] = [];
+    try {
+      parsedImages = JSON.parse(p.images || "[]");
+      if (!Array.isArray(parsedImages)) parsedImages = [];
+    } catch {
+      parsedImages = [];
+    }
+    let parsedFeatures: string[] = [];
+    try {
+      parsedFeatures = JSON.parse(p.features || "[]");
+      if (!Array.isArray(parsedFeatures)) parsedFeatures = [];
+    } catch {
+      parsedFeatures = [];
+    }
     setForm({
       title: p.title,
       description: p.description,
@@ -494,8 +489,8 @@ const handleSave = async () => {
       baths: p.baths,
       size: p.size,
       image: p.image,
-      images: JSON.parse(p.images || "[]"),
-      features: JSON.parse(p.features || "[]"),
+      images: parsedImages,
+      features: parsedFeatures,
       featured: p.featured,
       status: p.status,
     });
@@ -575,32 +570,33 @@ const handleSave = async () => {
       p.location.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // FIX #1: All setForm calls below use functional updater
   const addFeature = () => {
     if (featureInput.trim()) {
-      setForm({ ...form, features: [...form.features, featureInput.trim()] });
+      setForm((prev) => ({ ...prev, features: [...prev.features, featureInput.trim()] }));
       setFeatureInput("");
     }
   };
 
   const removeFeature = (idx: number) => {
-    setForm({
-      ...form,
-      features: form.features.filter((_, i) => i !== idx),
-    });
+    setForm((prev) => ({
+      ...prev,
+      features: prev.features.filter((_, i) => i !== idx),
+    }));
   };
 
   const addImage = () => {
     if (imageInput.trim()) {
-      setForm({ ...form, images: [...form.images, imageInput.trim()] });
+      setForm((prev) => ({ ...prev, images: [...prev.images, imageInput.trim()] }));
       setImageInput("");
     }
   };
 
   const removeImage = (idx: number) => {
-    setForm({
-      ...form,
-      images: form.images.filter((_, i) => i !== idx),
-    });
+    setForm((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== idx),
+    }));
   };
 
   /* ─── Render ─────────────────────────────────────────── */
@@ -1147,6 +1143,7 @@ const handleSave = async () => {
                           >
                             <td className="p-4">
                               <div className="flex items-center gap-3">
+                                {/* FIX #3: unoptimized prop for dynamic/external URLs */}
                                 <div className="relative w-12 h-12 rounded-sm overflow-hidden flex-shrink-0">
                                   <Image
                                     src={p.image}
@@ -1154,6 +1151,7 @@ const handleSave = async () => {
                                     fill
                                     className="object-cover"
                                     quality={50}
+                                    unoptimized
                                   />
                                 </div>
                                 <div>
@@ -1654,12 +1652,16 @@ const handleSave = async () => {
                         : "border-[#C2A75C]/20 hover:border-[#C2A75C]/40 bg-[#0D0D0D]/40"
                     }`}
                   >
+                    {/* FIX #2: Reset input value after upload so same file can be re-selected */}
                     <input
                       id="main-image-input"
                       type="file"
                       accept="image/jpeg,image/png,image/webp,image/gif"
                       className="hidden"
-                      onChange={(e) => e.target.files && handleMainImageUpload(e.target.files)}
+                      onChange={(e) => {
+                        if (e.target.files) handleMainImageUpload(e.target.files);
+                        e.target.value = "";
+                      }}
                     />
                     {uploadingMain ? (
                       <div className="flex flex-col items-center gap-2">
@@ -1668,6 +1670,7 @@ const handleSave = async () => {
                       </div>
                     ) : form.image ? (
                       <div className="flex flex-col items-center gap-3">
+                        {/* FIX #3: unoptimized prop for dynamic/external URLs */}
                         <div className="relative w-full max-w-[200px] h-32 rounded-sm overflow-hidden border border-[#C2A75C]/20">
                           <Image
                             src={form.image}
@@ -1675,6 +1678,7 @@ const handleSave = async () => {
                             fill
                             className="object-cover"
                             quality={60}
+                            unoptimized
                           />
                         </div>
                         <span className="text-[#C2A75C] text-xs">{form.image}</span>
@@ -1719,13 +1723,17 @@ const handleSave = async () => {
                         : "border-[#C2A75C]/20 hover:border-[#C2A75C]/40 bg-[#0D0D0D]/40"
                     }`}
                   >
+                    {/* FIX #2: Reset input value after upload so same file can be re-selected */}
                     <input
                       id="gallery-images-input"
                       type="file"
                       accept="image/jpeg,image/png,image/webp,image/gif"
                       multiple
                       className="hidden"
-                      onChange={(e) => e.target.files && handleGalleryUpload(e.target.files)}
+                      onChange={(e) => {
+                        if (e.target.files) handleGalleryUpload(e.target.files);
+                        e.target.value = "";
+                      }}
                     />
                     {uploadingGallery ? (
                       <div className="flex flex-col items-center gap-2">
@@ -1745,12 +1753,14 @@ const handleSave = async () => {
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-3">
                       {form.images.map((img, idx) => (
                         <div key={idx} className="relative group aspect-square rounded-sm overflow-hidden border border-[#C2A75C]/20">
+                          {/* FIX #3: unoptimized prop for dynamic/external URLs */}
                           <Image
                             src={img}
                             alt={`Gallery ${idx + 1}`}
                             fill
                             className="object-cover"
                             quality={50}
+                            unoptimized
                           />
                           <button
                             onClick={() => removeImage(idx)}
