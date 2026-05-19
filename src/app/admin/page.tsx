@@ -551,39 +551,7 @@ const handleGalleryUpload = async (files: FileList | File[]) => {
       console.error(e);
     }
   };
-
-  // Inquiry actions
-  const handleMarkRead = async (id: string, read: boolean) => {
-    try {
-      await fetch(`/api/inquiries/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ read }),
-      });
-      fetchInquiries();
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleDeleteInquiry = async (id: string) => {
-    if (!confirm("Delete this inquiry?")) return;
-    try {
-      await fetch(`/api/inquiries/${id}`, { method: "DELETE" });
-      fetchInquiries();
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  // Filter
-  const filteredProperties = properties.filter(
-    (p) =>
-      p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.location.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // FIX #1: All setForm calls below use functional updater
+// NEW:
   const addFeature = () => {
     if (featureInput.trim()) {
       setForm((prev) => ({ ...prev, features: [...prev.features, featureInput.trim()] }));
@@ -591,6 +559,26 @@ const handleGalleryUpload = async (files: FileList | File[]) => {
     }
   };
 
+  const removeFeature = (idx: number) => {
+    setForm((prev) => ({
+      ...prev,
+      features: prev.features.filter((_, i) => i !== idx),
+    }));
+  };
+
+  const addImage = () => {
+    if (imageInput.trim()) {
+      setForm((prev) => ({ ...prev, images: [...prev.images, imageInput.trim()] }));
+      setImageInput("");
+    }
+  };
+
+  const removeImage = (idx: number) => {
+    setForm((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== idx),
+    }));
+  };
   const removeFeature = (idx: number) => {
     setForm((prev) => ({
       ...prev,
