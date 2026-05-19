@@ -110,7 +110,7 @@ const emptyForm = {
   beds: 0,
   baths: 0,
   size: "",
-  image: "/images/property-1.png",
+  image: "",
   images: [] as string[],
   features: [] as string[],
   featured: false,
@@ -344,8 +344,10 @@ export default function AdminDashboard() {
     }
   };
 
-  // FIX #1: Use functional updater (prev) => ... to avoid stale closure bugs
-  const handleMainImageUpload = async (files: FileList | File[]) => {
+  
+
+// NEW:
+const handleMainImageUpload = async (files: FileList | File[]) => {
     const file = files[0];
     if (!file) return;
     setUploadingMain(true);
@@ -354,8 +356,7 @@ export default function AdminDashboard() {
     setUploadingMain(false);
   };
 
-  // FIX #1: Use functional updater (prev) => ... to avoid stale closure bugs
-  const handleGalleryUpload = async (files: FileList | File[]) => {
+const handleGalleryUpload = async (files: FileList | File[]) => {
     setUploadingGallery(true);
     const newImages: string[] = [];
     for (let i = 0; i < files.length; i++) {
@@ -426,9 +427,13 @@ export default function AdminDashboard() {
     doLoad();
     return () => { cancelled = true; };
   }, [isAuthenticated]);
-
-  // CRUD
+// NEW:
   const handleSave = async () => {
+    if (!form.image || form.image.trim() === "") {
+      alert("Please upload a main image for the property.");
+      return;
+    }
+
     const payload = {
       ...form,
       slug: generateSlug(form.title),
@@ -438,18 +443,24 @@ export default function AdminDashboard() {
     };
 
     try {
+      let res;
       if (editingId) {
-        await fetch(`/api/properties/${editingId}`, {
+        res = await fetch(`/api/properties/${editingId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
       } else {
-        await fetch("/api/properties", {
+        res = await fetch("/api/properties", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+      }
+      if (!res?.ok) {
+        const data = await res?.json();
+        alert(data?.error || "Failed to save property.");
+        return;
       }
       setShowForm(false);
       setEditingId(null);
@@ -457,8 +468,10 @@ export default function AdminDashboard() {
       loadAll();
     } catch (e) {
       console.error(e);
+      alert("Failed to save property. Please try again.");
     }
   };
+  
 
   // FIX #4: Safe JSON.parse with try/catch and Array.isArray validation
   const handleEdit = (p: Property) => {
