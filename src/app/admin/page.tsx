@@ -55,8 +55,8 @@ interface Property {
   baths: number;
   size: string;
   image: string;
-  images: string; // JSON-encoded string[] from the API
-  features: string; // JSON-encoded string[] from the API
+  images: string;
+  features: string;
   featured: boolean;
   status: string;
   createdAt: string;
@@ -344,10 +344,7 @@ export default function AdminDashboard() {
     }
   };
 
-  
-
-// NEW:
-const handleMainImageUpload = async (files: FileList | File[]) => {
+  const handleMainImageUpload = async (files: FileList | File[]) => {
     const file = files[0];
     if (!file) return;
     setUploadingMain(true);
@@ -356,7 +353,7 @@ const handleMainImageUpload = async (files: FileList | File[]) => {
     setUploadingMain(false);
   };
 
-const handleGalleryUpload = async (files: FileList | File[]) => {
+  const handleGalleryUpload = async (files: FileList | File[]) => {
     setUploadingGallery(true);
     const newImages: string[] = [];
     for (let i = 0; i < files.length; i++) {
@@ -427,7 +424,8 @@ const handleGalleryUpload = async (files: FileList | File[]) => {
     doLoad();
     return () => { cancelled = true; };
   }, [isAuthenticated]);
-// NEW:
+
+  // CRUD
   const handleSave = async () => {
     if (!form.image || form.image.trim() === "") {
       alert("Please upload a main image for the property.");
@@ -471,25 +469,9 @@ const handleGalleryUpload = async (files: FileList | File[]) => {
       alert("Failed to save property. Please try again.");
     }
   };
-  
 
-  // FIX #4: Safe JSON.parse with try/catch and Array.isArray validation
   const handleEdit = (p: Property) => {
     setEditingId(p.id);
-    let parsedImages: string[] = [];
-    try {
-      parsedImages = JSON.parse(p.images || "[]");
-      if (!Array.isArray(parsedImages)) parsedImages = [];
-    } catch {
-      parsedImages = [];
-    }
-    let parsedFeatures: string[] = [];
-    try {
-      parsedFeatures = JSON.parse(p.features || "[]");
-      if (!Array.isArray(parsedFeatures)) parsedFeatures = [];
-    } catch {
-      parsedFeatures = [];
-    }
     setForm({
       title: p.title,
       description: p.description,
@@ -502,8 +484,8 @@ const handleGalleryUpload = async (files: FileList | File[]) => {
       baths: p.baths,
       size: p.size,
       image: p.image,
-      images: parsedImages,
-      features: parsedFeatures,
+      images: JSON.parse(p.images || "[]"),
+      features: JSON.parse(p.features || "[]"),
       featured: p.featured,
       status: p.status,
     });
@@ -551,7 +533,38 @@ const handleGalleryUpload = async (files: FileList | File[]) => {
       console.error(e);
     }
   };
-// NEW:
+
+  // Inquiry actions
+  const handleMarkRead = async (id: string, read: boolean) => {
+    try {
+      await fetch(`/api/inquiries/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ read }),
+      });
+      fetchInquiries();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteInquiry = async (id: string) => {
+    if (!confirm("Delete this inquiry?")) return;
+    try {
+      await fetch(`/api/inquiries/${id}`, { method: "DELETE" });
+      fetchInquiries();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Filter
+  const filteredProperties = properties.filter(
+    (p) =>
+      p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.location.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const addFeature = () => {
     if (featureInput.trim()) {
       setForm((prev) => ({ ...prev, features: [...prev.features, featureInput.trim()] }));
@@ -559,26 +572,6 @@ const handleGalleryUpload = async (files: FileList | File[]) => {
     }
   };
 
-  const removeFeature = (idx: number) => {
-    setForm((prev) => ({
-      ...prev,
-      features: prev.features.filter((_, i) => i !== idx),
-    }));
-  };
-
-  const addImage = () => {
-    if (imageInput.trim()) {
-      setForm((prev) => ({ ...prev, images: [...prev.images, imageInput.trim()] }));
-      setImageInput("");
-    }
-  };
-
-  const removeImage = (idx: number) => {
-    setForm((prev) => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== idx),
-    }));
-  };
   const removeFeature = (idx: number) => {
     setForm((prev) => ({
       ...prev,
@@ -1144,15 +1137,13 @@ const handleGalleryUpload = async (files: FileList | File[]) => {
                           >
                             <td className="p-4">
                               <div className="flex items-center gap-3">
-                                {/* FIX #3: unoptimized prop for dynamic/external URLs */}
                                 <div className="relative w-12 h-12 rounded-sm overflow-hidden flex-shrink-0">
                                   <Image
-                                    src={p.image}
+                                    src={p.image || "/images/property-1.png"}
                                     alt={p.title}
                                     fill
                                     className="object-cover"
                                     quality={50}
-                                    unoptimized
                                   />
                                 </div>
                                 <div>
@@ -1653,16 +1644,12 @@ const handleGalleryUpload = async (files: FileList | File[]) => {
                         : "border-[#C2A75C]/20 hover:border-[#C2A75C]/40 bg-[#0D0D0D]/40"
                     }`}
                   >
-                    {/* FIX #2: Reset input value after upload so same file can be re-selected */}
                     <input
                       id="main-image-input"
                       type="file"
                       accept="image/jpeg,image/png,image/webp,image/gif"
                       className="hidden"
-                      onChange={(e) => {
-                        if (e.target.files) handleMainImageUpload(e.target.files);
-                        e.target.value = "";
-                      }}
+                      onChange={(e) => e.target.files && handleMainImageUpload(e.target.files)}
                     />
                     {uploadingMain ? (
                       <div className="flex flex-col items-center gap-2">
@@ -1671,7 +1658,6 @@ const handleGalleryUpload = async (files: FileList | File[]) => {
                       </div>
                     ) : form.image ? (
                       <div className="flex flex-col items-center gap-3">
-                        {/* FIX #3: unoptimized prop for dynamic/external URLs */}
                         <div className="relative w-full max-w-[200px] h-32 rounded-sm overflow-hidden border border-[#C2A75C]/20">
                           <Image
                             src={form.image}
@@ -1679,7 +1665,6 @@ const handleGalleryUpload = async (files: FileList | File[]) => {
                             fill
                             className="object-cover"
                             quality={60}
-                            unoptimized
                           />
                         </div>
                         <span className="text-[#C2A75C] text-xs">{form.image}</span>
@@ -1724,17 +1709,13 @@ const handleGalleryUpload = async (files: FileList | File[]) => {
                         : "border-[#C2A75C]/20 hover:border-[#C2A75C]/40 bg-[#0D0D0D]/40"
                     }`}
                   >
-                    {/* FIX #2: Reset input value after upload so same file can be re-selected */}
                     <input
                       id="gallery-images-input"
                       type="file"
                       accept="image/jpeg,image/png,image/webp,image/gif"
                       multiple
                       className="hidden"
-                      onChange={(e) => {
-                        if (e.target.files) handleGalleryUpload(e.target.files);
-                        e.target.value = "";
-                      }}
+                      onChange={(e) => e.target.files && handleGalleryUpload(e.target.files)}
                     />
                     {uploadingGallery ? (
                       <div className="flex flex-col items-center gap-2">
@@ -1754,14 +1735,12 @@ const handleGalleryUpload = async (files: FileList | File[]) => {
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-3">
                       {form.images.map((img, idx) => (
                         <div key={idx} className="relative group aspect-square rounded-sm overflow-hidden border border-[#C2A75C]/20">
-                          {/* FIX #3: unoptimized prop for dynamic/external URLs */}
                           <Image
                             src={img}
                             alt={`Gallery ${idx + 1}`}
                             fill
                             className="object-cover"
                             quality={50}
-                            unoptimized
                           />
                           <button
                             onClick={() => removeImage(idx)}
