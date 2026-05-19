@@ -479,21 +479,6 @@ const handleSave = async () => {
     alert("Network error — could not save the property.");
   }
 };
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      alert(data.error || `Failed to save property (status ${res.status}). Check that all required fields are filled.`);
-      return;
-    }
-
-    setShowForm(false);
-    setEditingId(null);
-    setForm(emptyForm);
-    loadAll();
-  } catch (e) {
-    console.error(e);
-    alert("Network error — could not save the property. Please check your connection and try again.");
-  }
-};
 
   const handleEdit = (p: Property) => {
     setEditingId(p.id);
