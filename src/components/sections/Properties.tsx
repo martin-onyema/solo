@@ -167,16 +167,19 @@ export default function Properties() {
                 className="group relative bg-[#1A1A1A] border border-[#C2A75C]/10 hover:border-[#C2A75C]/30 rounded-sm overflow-hidden transition-all duration-500 hover:shadow-lg hover:shadow-[#C2A75C]/5"
               >
                 {/* Image */}
-                <div className="relative aspect-[4/3] overflow-hidden">
-                  <Image
-                    src={property.image}
-                    alt={property.title}
-                    fill
-                    className="object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0D0D0D] via-transparent to-transparent opacity-60" />
-
-                  {/* Tag */}
+// NEW:
+<Image
+  src={property.image || "/images/property-1.png"}
+  alt={property.title}
+  fill
+  className="object-cover transition-transform duration-700 group-hover:scale-110"
+  onError={(e) => {
+    const target = e.target as HTMLImageElement;
+    if (!target.src.endsWith("/images/property-1.png")) {
+      target.src = "/images/property-1.png";
+    }
+  }}
+/>
                   <div className="absolute top-4 left-4">
                     <span className="bg-[#C2A75C] text-[#0D0D0D] text-[10px] tracking-widest uppercase font-semibold px-3 py-1">
                       {property.tag}
